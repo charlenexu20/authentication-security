@@ -4,6 +4,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
+const encrypt = require("mongoose-encryption");
 
 const app = express();
 
@@ -27,6 +28,15 @@ main();
 const userSchema = new mongoose.Schema({
     email: String,
     password: String
+});
+
+// Define the encryption secret key
+const secret = "Thisisourlittlesecret.";
+
+// Apply encryption plugin to the user schema
+userSchema.plugin(encrypt, {
+    secret: secret,                     // Encryption secret key
+    encryptedFields: ["password"]       // Fields to be encrypted
 });
 
 // Create User model
