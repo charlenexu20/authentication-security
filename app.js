@@ -5,7 +5,8 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
-const md5 = require("md5");
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 
 const app = express();
 
@@ -46,15 +47,17 @@ app.route("/register")
     })
     .post(async (req, res) => {
         try {
-            // Create a new user in the database
+            // Hash the provided password using bcrypt
+            const hash = await bcrypt.hash(req.body.password, saltRounds);
+
+            // Create a new user in the database with the hashed password
             await User.create({
                 email: req.body.username,
-                // Hash the password using MD5 before storing it in db
-                password: md5(req.body.password)
-            });
+                password: hash
+            })
             res.render("secrets");
         } catch (err) {
-            console.error(err);
+            res.send(err);
         }
     });
 
@@ -65,15 +68,22 @@ app.route("/login")
     })
     .post(async (req, res) => {
         try {
+            // Get the username and password from the request
             const username = req.body.username;
-            const password = md5(req.body.password);
-            // Find the user in the database
-            const foundUser = await User.findOne({ email: username });
-            if (foundUser && foundUser.password === password) {
+            const password = req.body.password;
+
+            // Find the user record based on the provided username
+            const data = await User.findOne({ email: username});
+
+            // Compare the provided password with the stored hash
+            const result = await bcrypt.compare(password, data.password);
+            if (result === true) {
                 res.render("secrets");
+            } else {
+                res.send("The username or password doesn't match.");
             }
         } catch (err) {
-            console.error(err);
+            res.send(err);
         }
     });
 
