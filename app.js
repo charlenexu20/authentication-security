@@ -1,5 +1,6 @@
 //jshint esversion:6
 
+require("dotenv").config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
@@ -30,12 +31,9 @@ const userSchema = new mongoose.Schema({
     password: String
 });
 
-// Define the encryption secret key
-const secret = "Thisisourlittlesecret.";
-
 // Apply encryption plugin to the user schema
 userSchema.plugin(encrypt, {
-    secret: secret,                     // Encryption secret key
+    secret: process.env.SECRET,                     // Encryption secret key
     encryptedFields: ["password"]       // Fields to be encrypted
 });
 
