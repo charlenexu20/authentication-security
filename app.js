@@ -8,6 +8,8 @@ const mongoose = require("mongoose");
 const session = require("express-session");
 const passport = require("passport");
 const passportLocalMongoose = require("passport-local-mongoose");
+const GoogleStrategy = require("passport-google-oauth20").Strategy;
+const findOrCreate = require("mongoose-findorcreate");
 
 const app = express();
 
@@ -41,24 +43,65 @@ main();
 // Define the user schema
 const userSchema = new mongoose.Schema({
     email: String,
-    password: String
+    password: String,
+    googleId: String
 });
 
 // This plugin simplifies adding username and password fields for authentication
 userSchema.plugin(passportLocalMongoose);
+userSchema.plugin(findOrCreate);
 
 // Create User model
 const User = new mongoose.model("User", userSchema);
 
 // Configure Passport.js local strategy
 passport.use(User.createStrategy());
-passport.serializeUser(User.serializeUser());
-passport.deserializeUser(User.deserializeUser());
+
+// Serialize and Deserialize user
+passport.serializeUser(function(user, done) {
+    done(null, user.id);
+});
+
+passport.deserializeUser(async (id, done) => {
+    try {
+        const user = await User.findById(id).exec();
+        done(null, user);
+    } catch (err) {
+        done(err, null);
+    }
+});
+
+// Configure Google authentication strategy
+passport.use(new GoogleStrategy({
+    clientID: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET,
+    callbackURL: "http://localhost:3000/auth/google/secrets"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    console.log(profile);
+    User.findOrCreate({ googleId: profile.id }, function (err, user) {
+      return cb(err, user);
+    });
+  }
+));
 
 // Route: Home page
 app.get("/", (req, res) => {
     res.render("home");
 });
+
+// Route: Google authentication
+app.get("/auth/google",
+    passport.authenticate("google", { scope: ["profile"] })
+);
+
+// Callback for Google authentication
+app.get("/auth/google/secrets",
+  passport.authenticate("google", { failureRedirect: "/login" }),
+  (req, res) => {
+    // Successful authentication, redirect home.
+    res.redirect("/secrets");
+  });
 
 // Route: Secrets page (protected by authentication)
 app.get("/secrets", (req, res) => {
