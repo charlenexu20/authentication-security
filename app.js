@@ -44,7 +44,8 @@ main();
 const userSchema = new mongoose.Schema({
     email: String,
     password: String,
-    googleId: String
+    googleId: String,
+    secret: String
 });
 
 // This plugin simplifies adding username and password fields for authentication
@@ -104,11 +105,14 @@ app.get("/auth/google/secrets",
   });
 
 // Route: Secrets page (protected by authentication)
-app.get("/secrets", (req, res) => {
-    if (req.isAuthenticated()) {
-        res.render("secrets");
-    } else {
-        res.redirect("/login");
+app.get("/secrets", async (req, res) => {
+    try {
+        const foundUsers = await User.find({ "secret": { $ne: null }}).exec();
+        if (foundUsers) {
+            res.render("secrets", { usersWithSecrets: foundUsers });
+        }
+    } catch (err) {
+        console.error(err);
     }
 });
 
@@ -161,6 +165,29 @@ app.route("/login")
                     });
                 }
             });
+        } catch (err) {
+            console.error(err);
+        }
+    });
+
+// Route: Submit page
+app.route("/submit")
+    .get((req, res) => {
+        if (req.isAuthenticated()) {
+            res.render("submit");
+        } else {
+            res.redirect("/login");
+        }
+    })
+    .post(async (req, res) => {
+        try {
+            const submittedSecret = req.body.secret;
+            const foundUser = await User.findById(req.user.id).exec();
+            if (foundUser) {
+                foundUser.secret = submittedSecret; // Update the user's secret
+                foundUser.save(); // Save the updated user document
+                res.redirect("/secrets");
+            }
         } catch (err) {
             console.error(err);
         }
